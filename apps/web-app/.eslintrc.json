@@ -1,0 +1,12 @@
+{
+  "extends": [
+    "../../.eslintrc",
+    "plugin:react/recommended"
+  ],
+  "plugins": [
+    "react"
+  ],
+  "rules": {
+    //TODO: ici ajout de regles
+  }
+}
