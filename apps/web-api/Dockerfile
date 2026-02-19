@@ -1,44 +1,35 @@
-# =========================
-# ====== BUILD STAGE ======
-# =========================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
 WORKDIR /app
-
-# Activer corepack et pnpm
-RUN corepack enable && corepack prepare pnpm@10.22.0 --activate
-
-# Copier package.json et lockfile
-COPY apps/web-api/package.json apps/web-api/pnpm-lock.yaml ./
-
-# Copier tout le projet de l'app
-COPY apps/web-api/ ./
-
-# Installer les dépendances
-RUN pnpm install --frozen-lockfile
-
-# Compiler TypeScript
-RUN pnpm exec tsc
-
-# =========================
-# ===== RUNTIME STAGE ======
-# =========================
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Activer pnpm (utile si besoin de scripts)
 RUN corepack enable
 
-# Copier node_modules du builder
-COPY --from=builder /app/node_modules ./node_modules
+# Cache-friendly layer: install deps from workspace manifests first.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/web-api/package.json apps/web-api/package.json
+RUN pnpm install --filter api... --frozen-lockfile
 
-# Copier le build compilé
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./package.json
+# Copy sources and build TypeScript.
+COPY apps/web-api apps/web-api
+RUN pnpm --filter api build
 
-# Exposer le port de l'API
+FROM node:24-alpine AS runtime
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV NODE_ENV=production
+
+WORKDIR /app
+RUN corepack enable
+
+# Install only production dependencies for web-api.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/web-api/package.json apps/web-api/package.json
+RUN pnpm install --filter api... --prod --frozen-lockfile
+
+# Copy compiled output from builder stage.
+COPY --from=builder /app/apps/web-api/dist ./apps/web-api/dist
+
+WORKDIR /app/apps/web-api
 EXPOSE 3000
-
-# Lancer le serveur Node
 CMD ["node", "dist/server.js"]

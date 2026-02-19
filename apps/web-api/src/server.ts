@@ -1,12 +1,12 @@
-import express  from "express";
+import express from "express";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+  res.json({ status: "ok" });
 });
 
 app.listen(PORT, () => {
-    console.log("API running on port", PORT);
+  console.log("API running on port", PORT);
 });
